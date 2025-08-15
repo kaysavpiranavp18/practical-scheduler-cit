@@ -128,26 +128,35 @@ export default function AllocateSessions() {
     const studentsPerSession = 30;
     const totalSessions = Math.ceil(totalStudents / studentsPerSession);
     const sessionsPerDay = timings.length;
+    const totalDaysNeeded = Math.ceil(totalSessions / sessionsPerDay);
     
     const generatedSessions: SessionAllocation[] = [];
     let currentDate = new Date();
     
-    for (let i = 0; i < totalSessions; i++) {
-      const dayIndex = Math.floor(i / sessionsPerDay);
-      const sessionInDay = i % sessionsPerDay;
+    // Generate sessions based on available days and sessions per day
+    for (let dayIndex = 0; dayIndex < totalDaysNeeded; dayIndex++) {
       const sessionDate = new Date(currentDate);
       sessionDate.setDate(sessionDate.getDate() + dayIndex);
       
-      const remainingStudents = totalStudents - (i * studentsPerSession);
-      const studentsInThisSession = Math.min(studentsPerSession, remainingStudents);
-      
-      generatedSessions.push({
-        sessionNumber: i + 1,
-        date: sessionDate.toISOString().split('T')[0],
-        timingId: timings[sessionInDay]?.id || "",
-        studentsCount: studentsInThisSession,
-        assignedFacultyId: null,
-      });
+      for (let sessionInDay = 0; sessionInDay < sessionsPerDay; sessionInDay++) {
+        const sessionIndex = (dayIndex * sessionsPerDay) + sessionInDay;
+        
+        // Break if we've allocated all students
+        if (sessionIndex >= totalSessions) break;
+        
+        const remainingStudents = totalStudents - (sessionIndex * studentsPerSession);
+        const studentsInThisSession = Math.min(studentsPerSession, remainingStudents);
+        
+        if (studentsInThisSession > 0) {
+          generatedSessions.push({
+            sessionNumber: sessionIndex + 1,
+            date: sessionDate.toISOString().split('T')[0],
+            timingId: timings[sessionInDay]?.id || "",
+            studentsCount: studentsInThisSession,
+            assignedFacultyId: null,
+          });
+        }
+      }
     }
     
     setSessions(generatedSessions);
