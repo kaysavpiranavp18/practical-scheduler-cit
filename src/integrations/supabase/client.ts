@@ -2,16 +2,27 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://mspgnsoggvecnkdvqefu.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zcGduc29nZ3ZlY25rZHZxZWZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyMzk5NzMsImV4cCI6MjA3MDgxNTk3M30.TG3WcSSDNTWLrWYYBpoKItX3ztKDjliU9e-Wee9F0ik";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  // eslint-disable-next-line no-console
+  console.warn('Supabase env vars are not set. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
+}
+
+export const supabase = createClient<Database>(
+  SUPABASE_URL || 'https://ikezzllqratrxxmglvbw.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_-TdMoaaIB8vnXARuKTuQlg_Nsfwk3ut',
+  typeof window !== 'undefined'
+    ? {
+        auth: {
+          storage: localStorage,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      }
+    : undefined
+);

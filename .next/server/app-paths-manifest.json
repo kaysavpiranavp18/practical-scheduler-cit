@@ -1,0 +1,7 @@
+{
+  "/page": "app/page.js",
+  "/view-allocations/page": "app/view-allocations/page.js",
+  "/export/page": "app/export/page.js",
+  "/enter-exam-details/page": "app/enter-exam-details/page.js",
+  "/select-regulation-department/page": "app/select-regulation-department/page.js"
+}
