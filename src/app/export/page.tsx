@@ -6,6 +6,12 @@ import jsPDF from "jspdf";
 
 export default function ExportPage() {
 	const params = useSearchParams();
+	const multiSaved = useMemo(() => {
+		try {
+			const raw = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_multi_v1") : null;
+			return raw ? JSON.parse(raw) : null;
+		} catch { return null; }
+	}, []);
 	const rows = useMemo(() => {
 		try {
 			const payload = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_v1") : null;
@@ -70,7 +76,7 @@ export default function ExportPage() {
 		const csvRows = rows.map((r: any) => {
 			// Get faculty from the assigned faculty data
 			const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
-			const facultyName = assignedFaculty[facultyKey] || "Not Assigned";
+			const facultyName = (assignedFaculty as any)[facultyKey] || "Not Assigned";
 			
 			return [
 				r.date,
@@ -99,7 +105,7 @@ export default function ExportPage() {
 		const page = { width: 210, height: 297, margin: 12 };
 
 		// header
-		const drawHeader = () => {
+		const drawHeader = (deptId: string, deptName: string) => {
 			doc.setFontSize(14);
 			doc.text("ANNA UNIVERSITY :: CHENNAI - 600 025", page.margin, 16);
 			doc.text("OFFICE OF THE CONTROLLER OF EXAMINATIONS", page.margin, 24);
@@ -107,100 +113,117 @@ export default function ExportPage() {
 			doc.text("APRIL / MAY EXAMINATION,2025 EXAMINATIONS", page.margin, 32);
 			doc.setFontSize(12);
 			doc.text("Internal Examiner Allotted Report", page.margin, 42);
-			const institutionCode = meta?.department_id || "";
-			const departmentName = meta?.department_name || "Department";
 			doc.setFontSize(10);
-			doc.text(`Institution Code - Name : ${institutionCode} - ${departmentName}`, page.margin, 52);
+			doc.text(`Institution Code - Name : ${deptId} - ${deptName}`, page.margin, 52);
 			doc.text("Slot Code - Slot Name : 1 - UG/PG_ALL_REGULATIONS_EXCEPT(PG_PW_VIVA_VOCE)", page.margin, 60);
 		};
 
-		const drawBranchHeader = (y: number) => {
-			const branch = `${meta?.department_id || ""} - ${meta?.department_name || "Department"} [ AUC ]`;
+		const drawBranchHeader = (y: number, deptId: string, deptName: string) => {
+			const branch = `${deptId || ""} - ${deptName || "Department"} [ AUC ]`;
 			doc.setFontSize(9);
 			doc.text(`Branch Code - Branch Name [ University ] : ${branch}`, page.margin, y);
 			return y + 6;
 		};
 
 		type SessionRow = { sessionNo: number; date: string; time: string; students: number; facultyNames: string };
-		const bySubject: Record<string, { subjectName: string; subjectCode: string; sessions: SessionRow[] }> = {};
-		const sessionMap: Record<string, { students: number; time: string; facultyIds: Set<string> }> = {};
+		const renderOne = (pack: any) => {
+			const deptId = pack.department_id || meta.department_id;
+			const deptName = pack.department_name || meta.department_name;
+			const localRows: any[] = pack.rows || rows;
+			const localAssigned: Record<string, string> = pack.assignedFaculty || assignedFaculty;
+			const localDir: Record<string, string> = pack.facultyDirectory || facultyDirectory;
 
-		(rows as any[]).forEach((r: any) => {
-			const subKey = r.subjectCode as string;
-			const sessKey = `${r.subjectCode}|${r.date}|${r.session}`;
-			if (!sessionMap[sessKey]) sessionMap[sessKey] = { students: 0, time: r.time, facultyIds: new Set<string>() };
-			sessionMap[sessKey].students += Number(r.studentsAllocated || 0);
-			const fKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
-			const fId = (assignedFaculty as any)[fKey];
-			if (fId) sessionMap[sessKey].facultyIds.add(String(fId));
-			if (!bySubject[subKey]) bySubject[subKey] = { subjectName: r.subjectName, subjectCode: r.subjectCode, sessions: [] };
-		});
+			const bySubject: Record<string, { subjectName: string; subjectCode: string; sessions: SessionRow[] }> = {};
+			const sessionMap: Record<string, { students: number; time: string; facultyIds: Set<string> }> = {};
 
-		Object.entries(sessionMap)
-			.sort((a, b) => a[0].localeCompare(b[0]))
-			.forEach(([key, val]) => {
-				const [subjectCode, date, sessionStr] = key.split("|");
-				const names = Array.from(val.facultyIds).map((id) => (facultyDirectory as any)[id] || id).join(", ") || "Not Assigned";
-				bySubject[subjectCode].sessions.push({ sessionNo: Number(sessionStr), date, time: val.time, students: val.students, facultyNames: names });
+			localRows.forEach((r: any) => {
+				const subKey = r.subjectCode as string;
+				const sessKey = `${r.subjectCode}|${r.date}|${r.session}`;
+				if (!sessionMap[sessKey]) sessionMap[sessKey] = { students: 0, time: r.time, facultyIds: new Set<string>() };
+				sessionMap[sessKey].students += Number(r.studentsAllocated || 0);
+				const fKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
+				const fId = (localAssigned as any)[fKey];
+				if (fId) sessionMap[sessKey].facultyIds.add(String(fId));
+				if (!bySubject[subKey]) bySubject[subKey] = { subjectName: r.subjectName, subjectCode: r.subjectCode, sessions: [] };
 			});
 
-		drawHeader();
-		let y = drawBranchHeader(70);
+			Object.entries(sessionMap)
+				.sort((a, b) => a[0].localeCompare(b[0]))
+				.forEach(([key, val]) => {
+					const [subjectCode, date, sessionStr] = key.split("|");
+					const names = Array.from(val.facultyIds).map((id) => (localDir as any)[id] || id).join(", ") || "Not Assigned";
+					bySubject[subjectCode].sessions.push({ sessionNo: Number(sessionStr), date, time: val.time, students: val.students, facultyNames: names });
+				});
 
-		const drawTableHeader = () => {
-			doc.setFontSize(9);
-			const x = page.margin;
-			doc.text("Semester", x, y);
-			doc.text("Subject", x + 20, y);
-			doc.text("Total Student", x + 90, y);
-			doc.text("No. of Session", x + 116, y);
-			doc.text("Session No.", x + 142, y);
-			doc.text("Student per Session", x + 162, y);
-			doc.text("Date", x + 190, y);
-			doc.text("Time", x + 205, y);
-			doc.text("Internal Examiner Staff Code/Staff Name", x + 150, y + 6, { maxWidth: 200 } as any);
-			y += 8;
-			doc.line(page.margin, y, page.width - page.margin, y);
-			y += 4;
-		};
+			drawHeader(deptId, deptName);
+			let y = drawBranchHeader(70, deptId, deptName);
 
-		const ensureSpace = (min: number) => {
-			if (y + min > page.height - 20) {
-				doc.addPage();
-				drawHeader();
-				y = drawBranchHeader(70);
-				drawTableHeader();
-			}
-		};
-
-		drawTableHeader();
-		const totalStudentsPerSubject = Number(meta?.total_students ?? 0);
-
-		Object.values(bySubject).forEach((sub) => {
-			sub.sessions.sort((a, b) => (a.date === b.date ? a.sessionNo - b.sessionNo : a.date.localeCompare(b.date)));
-			const numSessions = sub.sessions.length;
-			sub.sessions.forEach((s, idx) => {
-				ensureSpace(10);
+			const drawTableHeader = () => {
+				doc.setFontSize(9);
 				const x = page.margin;
-				if (idx === 0) {
-					doc.text("04", x, y);
-					doc.text(`${sub.subjectCode} - ${sub.subjectName}`, x + 20, y, { maxWidth: 65 } as any);
-					doc.text(String(totalStudentsPerSubject || s.students), x + 96, y);
-					doc.text(String(numSessions), x + 124, y);
-				}
-				doc.text(String(s.sessionNo), x + 146, y);
-				doc.text(String(s.students), x + 170, y);
-				doc.text(new Date(s.date).toLocaleDateString('en-GB'), x + 190, y);
-				doc.text(s.time, x + 205, y);
-				doc.text(s.facultyNames, x + 150, y + 6, { maxWidth: 200 } as any);
+				doc.text("Semester", x, y);
+				doc.text("Subject", x + 20, y);
+				doc.text("Total Student", x + 90, y);
+				doc.text("No. of Session", x + 116, y);
+				doc.text("Session No.", x + 142, y);
+				doc.text("Student per Session", x + 162, y);
+				doc.text("Date", x + 190, y);
+				doc.text("Time", x + 205, y);
+				doc.text("Internal Examiner Staff Code/Staff Name", x + 150, y + 6, { maxWidth: 200 } as any);
 				y += 8;
-			});
-			y += 2;
-		});
+				doc.line(page.margin, y, page.width - page.margin, y);
+				y += 4;
+			};
 
-		doc.setFontSize(8);
-		doc.text(new Date().toLocaleDateString(), page.margin, page.height - 10);
-		doc.text("Anna University - COE", page.width - 60, page.height - 10);
+			const ensureSpace = (min: number) => {
+				if (y + min > page.height - 20) {
+					doc.addPage();
+					drawHeader(deptId, deptName);
+					y = drawBranchHeader(70, deptId, deptName);
+					drawTableHeader();
+				}
+			};
+
+			drawTableHeader();
+			const totalStudentsPerSubject = Number(pack.total_students ?? meta?.total_students ?? 0);
+
+			Object.values(bySubject).forEach((sub) => {
+				sub.sessions.sort((a, b) => (a.date === b.date ? a.sessionNo - b.sessionNo : a.date.localeCompare(b.date)));
+				const numSessions = sub.sessions.length;
+				sub.sessions.forEach((s, idx) => {
+					ensureSpace(10);
+					const x = page.margin;
+					if (idx === 0) {
+						doc.text("04", x, y);
+						doc.text(`${sub.subjectCode} - ${sub.subjectName}`, x + 20, y, { maxWidth: 65 } as any);
+						doc.text(String(totalStudentsPerSubject || s.students), x + 96, y);
+						doc.text(String(numSessions), x + 124, y);
+					}
+					doc.text(String(s.sessionNo), x + 146, y);
+					doc.text(String(s.students), x + 170, y);
+					doc.text(new Date(s.date).toLocaleDateString('en-GB'), x + 190, y);
+					doc.text(s.time, x + 205, y);
+					doc.text(s.facultyNames, x + 150, y + 6, { maxWidth: 200 } as any);
+					y += 8;
+				});
+				y += 2;
+			});
+
+			doc.setFontSize(8);
+			doc.text(new Date().toLocaleDateString(), page.margin, page.height - 10);
+			doc.text("Anna University - COE", page.width - 60, page.height - 10);
+		};
+
+		if (Array.isArray(multiSaved) && multiSaved.length) {
+			multiSaved.forEach((pack: any, idx: number) => {
+				if (idx > 0) doc.addPage();
+				renderOne(pack);
+			});
+			doc.save("Internal_Examiner_Allotted_Report_All_Departments.pdf");
+			return;
+		}
+
+		renderOne({});
 		doc.save("Internal_Examiner_Allotted_Report.pdf");
 	}
 

@@ -135,20 +135,94 @@ export default function ViewAllocations() {
 		router.push(`/export?from=view`);
 	}
 
-	async function saveToSupabase() {
-		await fetch("/api/allocations", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				department_id: scheduleParams.departmentId,
-				subjects: scheduleParams.subjects,
-				start: scheduleParams.startDate,
-				end: scheduleParams.endDate,
-				sessions_per_day: scheduleParams.sessionsPerDay,
-				total_students: scheduleParams.totalStudents,
-				faculty_by_subject_day_lab: assignedBySubjectDayLab,
-			}),
-		});
+	// Local Saved Allocations per Department
+	type SavedPayload = {
+		department_id: string;
+		department_name: string;
+		rows: AllocationRow[];
+		assignedFaculty: Record<string, string>;
+		facultyDirectory: Record<string, string>;
+		total_students: number;
+		sessions_per_day: number;
+		createdAt: number;
+	};
+
+	const [saved, setSaved] = useState<SavedPayload[]>([]);
+
+	useEffect(() => {
+		try {
+			const raw = localStorage.getItem("saved_allocations_v1");
+			const parsed: SavedPayload[] = raw ? JSON.parse(raw) : [];
+			setSaved(Array.isArray(parsed) ? parsed : []);
+		} catch {}
+	}, []);
+
+	function persistSaved(next: SavedPayload[]) {
+		setSaved(next);
+		try { localStorage.setItem("saved_allocations_v1", JSON.stringify(next)); } catch {}
+	}
+
+	function saveAllocationLocally() {
+		if (!rows.length || !scheduleParams.departmentId) {
+			toast.error("Nothing to save yet");
+			return;
+		}
+		const departmentName = params?.get("department_name") || "Department";
+		const facultyDirectory: Record<string, string> = Object.fromEntries(
+			availableFaculty.map((f) => [f.id, f.name])
+		);
+		const payload: SavedPayload = {
+			department_id: scheduleParams.departmentId,
+			department_name: departmentName,
+			rows,
+			assignedFaculty: assignedBySubjectDayLab,
+			facultyDirectory,
+			total_students: scheduleParams.totalStudents || 0,
+			sessions_per_day: scheduleParams.sessionsPerDay || 0,
+			createdAt: Date.now(),
+		};
+		const existingIdx = saved.findIndex(s => s.department_id === payload.department_id);
+		let next: SavedPayload[];
+		if (existingIdx >= 0) {
+			next = saved.slice();
+			next[existingIdx] = { ...payload, createdAt: next[existingIdx].createdAt };
+		} else {
+			next = [...saved, payload];
+		}
+		persistSaved(next);
+		toast.success("Allocation saved");
+	}
+
+	function removeSaved(departmentId: string) {
+		const next = saved.filter(s => s.department_id !== departmentId);
+		persistSaved(next);
+	}
+
+	function startDrag(index: number, ev: React.DragEvent<HTMLDivElement>) {
+		ev.dataTransfer.setData("text/plain", String(index));
+	}
+	function onDragOver(ev: React.DragEvent<HTMLDivElement>) { ev.preventDefault(); }
+	function onDrop(targetIndex: number, ev: React.DragEvent<HTMLDivElement>) {
+		ev.preventDefault();
+		const src = Number(ev.dataTransfer.getData("text/plain"));
+		if (Number.isNaN(src) || src === targetIndex) return;
+		const next = saved.slice();
+		const [item] = next.splice(src, 1);
+		next.splice(targetIndex, 0, item);
+		persistSaved(next);
+	}
+
+	function viewSaved(deptId: string) {
+		const p = saved.find(s => s.department_id === deptId);
+		if (!p) return;
+		try { sessionStorage.setItem("export_payload_v1", JSON.stringify(p)); } catch {}
+		router.push(`/export?from=saved&dept=${encodeURIComponent(deptId)}`);
+	}
+
+	function exportAllSaved() {
+		if (!saved.length) return;
+		try { sessionStorage.setItem("export_payload_multi_v1", JSON.stringify(saved)); } catch {}
+		router.push(`/export?multi=1`);
 	}
 
 	return (
@@ -234,9 +308,31 @@ export default function ViewAllocations() {
 							);
 						})}
 					</div>
+
+					{/* Saved allocations section with drag-and-drop */}
+					<div className="space-y-2">
+						<p className="font-medium">Saved allocations (reorder to set priority)</p>
+						<div className="grid gap-2">
+							{saved.map((s, idx) => (
+								<div key={s.department_id} draggable onDragStart={(e) => startDrag(idx, e)} onDragOver={onDragOver} onDrop={(e) => onDrop(idx, e)} className="border rounded p-3 flex items-center justify-between">
+									<div>
+										<p className="font-medium">{s.department_name}</p>
+										<p className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</p>
+									</div>
+									<div className="flex gap-2">
+										<Button variant="secondary" onClick={() => viewSaved(s.department_id)}>View</Button>
+										<Button variant="destructive" onClick={() => removeSaved(s.department_id)}>Remove</Button>
+									</div>
+								</div>
+							))}
+							{saved.length === 0 && <p className="text-sm text-muted-foreground">No saved allocations yet.</p>}
+						</div>
+					</div>
+
 					<div className="flex gap-3">
 						<Button onClick={goExport} disabled={!rows.length}>Export</Button>
-						<Button variant="secondary" onClick={saveToSupabase} disabled={!rows.length || !scheduleParams.departmentId}>Save to Supabase</Button>
+						<Button variant="secondary" onClick={saveAllocationLocally} disabled={!rows.length || !scheduleParams.departmentId}>Save Allocation</Button>
+						<Button variant="outline" onClick={exportAllSaved} disabled={!saved.length}>Export Saved List</Button>
 					</div>
 				</CardContent>
 			</Card>

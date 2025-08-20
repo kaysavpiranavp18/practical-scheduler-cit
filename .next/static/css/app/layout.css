@@ -848,6 +848,9 @@ video {
 .mt-auto {
   margin-top: auto;
 }
+.mt-6 {
+  margin-top: 1.5rem;
+}
 .block {
   display: block;
 }
@@ -1193,6 +1196,9 @@ video {
 }
 .items-stretch {
   align-items: stretch;
+}
+.justify-end {
+  justify-content: flex-end;
 }
 .justify-center {
   justify-content: center;
@@ -1768,6 +1774,10 @@ video {
 .text-white {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
+}
+.text-red-500 {
+  --tw-text-opacity: 1;
+  color: rgb(239 68 68 / var(--tw-text-opacity, 1));
 }
 .underline {
   text-decoration-line: underline;
