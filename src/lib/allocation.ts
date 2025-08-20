@@ -4,22 +4,23 @@ export type Lab = { id: string; name: string; capacity: number };
 export type Subject = { id?: string; name: string; code: string };
 
 export type AllocationInput = {
-		startDate: string;
-		endDate: string;
-		sessionsPerDay: number;
-		totalStudents: number;
-		labs: Lab[];
-		subjects: Subject[];
+	startDate: string;
+	endDate: string;
+	sessionsPerDay: number;
+	totalStudents: number;
+	labs: Lab[];
+	subjects: Subject[];
 };
 
 export type AllocationRow = {
-		date: string;
-		session: number;
-		labName: string;
-		labId?: string;
-		subjectCode: string;
-		subjectName: string;
-		studentsAllocated: number;
+	date: string;
+	session: number;
+	labName: string;
+	labId?: string;
+	subjectCode: string;
+	subjectName: string;
+	studentsAllocated: number;
+	time: string;
 };
 
 export function generateAllocations(input: AllocationInput): AllocationRow[] {
@@ -30,6 +31,13 @@ export function generateAllocations(input: AllocationInput): AllocationRow[] {
 	if (days.length === 0 || sessionsPerDay <= 0) return [];
 
 	const rows: AllocationRow[] = [];
+
+	// Define session timings based on the requirements
+	const sessionTimings = [
+		"8:30 AM - 10:30 AM", // Session 1
+		"11:00 AM - 1:00 PM", // Session 2
+		"1:30 PM - 3:30 PM",  // Session 3
+	];
 
 	// For each subject, allocate ALL students across the available slots evenly
 	for (const subject of subjects) {
@@ -47,6 +55,7 @@ export function generateAllocations(input: AllocationInput): AllocationRow[] {
 						subjectCode: subject.code,
 						subjectName: subject.name,
 						studentsAllocated: assign,
+						time: sessionTimings[s - 1] || "Unknown",
 					});
 					remainingForSubject -= assign;
 				}

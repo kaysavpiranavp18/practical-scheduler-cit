@@ -56,6 +56,10 @@ export default function ViewLabs() {
     try {
       setLoading(true);
       
+      if (!departmentId || !regulationId) {
+        throw new Error("Missing required parameters");
+      }
+      
       // Get department info
       const { data: departmentData, error: departmentError } = await supabase
         .from("departments")

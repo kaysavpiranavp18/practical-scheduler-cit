@@ -4,7 +4,7 @@ import { generateAllocations } from "@/lib/allocation";
 
 export async function POST(req: NextRequest) {
 	const body = await req.json();
-	const { department_id, subjects, start, end, sessions_per_day, total_students, faculty_by_day_lab } = body || {};
+	const { department_id, subjects, start, end, sessions_per_day, total_students, faculty_by_subject_day_lab } = body || {};
 
 	if (!department_id || !start || !end || !sessions_per_day || !total_students || !Array.isArray(subjects)) {
 		return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -25,9 +25,9 @@ export async function POST(req: NextRequest) {
 	});
 
 	// Optionally persist internal faculty assignment mapping if table exists
-	if (faculty_by_subject && typeof faculty_by_subject === 'object') {
+	if (faculty_by_subject_day_lab && typeof faculty_by_subject_day_lab === 'object') {
 		try {
-			const entries = Object.entries(faculty_by_subject as Record<string, string>);
+			const entries = Object.entries(faculty_by_subject_day_lab as Record<string, string>);
 			for (const [subject_code, faculty_id] of entries) {
 				await supabase.from('internal_assignments' as any).upsert({
 					id: crypto.randomUUID(),
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 		} catch {}
 	}
 
-	return NextResponse.json({ allocations: rows, faculty_by_day_lab: faculty_by_day_lab || {} });
+	return NextResponse.json({ allocations: rows, faculty_by_subject_day_lab: faculty_by_subject_day_lab || {} });
 }
 
 

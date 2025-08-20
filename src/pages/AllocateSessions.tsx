@@ -25,7 +25,7 @@ interface Faculty {
   name: string;
   email: string;
   department: string;
-  specialization: string;
+  specialization: string | null;
   years_of_experience: number;
 }
 
@@ -78,6 +78,10 @@ export default function AllocateSessions() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      if (!labId || !departmentId || !phase) {
+        throw new Error("Missing required parameters");
+      }
       
       // Get lab info
       const { data: labData, error: labError } = await supabase
@@ -201,6 +205,10 @@ export default function AllocateSessions() {
   const saveSchedule = async () => {
     try {
       setSaving(true);
+      
+      if (!labId) {
+        throw new Error("Lab ID is missing");
+      }
       
       // Create session records
       const sessionData = sessions.map(session => ({

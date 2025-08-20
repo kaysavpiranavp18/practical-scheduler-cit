@@ -38,17 +38,22 @@ export default function SelectRegulationDepartment() {
 	}, [regId]);
 
 	function next() {
-		const search = new URLSearchParams(params.toString());
+		const search = new URLSearchParams(params?.toString());
 		search.set("regulation_id", regId);
 		search.set("department_id", deptId);
+		// Get department name for passing to next pages
+		const selectedDept = departments.find(d => d.id === deptId);
+		if (selectedDept) {
+			search.set("department_name", selectedDept.name);
+		}
 		router.push(`/enter-exam-details?${search.toString()}`);
 	}
 
 	return (
 		<main className="container py-8">
 			<SummaryBar
-				cycle={params.get("cycle") || undefined}
-				phase={params.get("phase") || undefined}
+				cycle={params?.get("cycle") || undefined}
+				phase={params?.get("phase") || undefined}
 			/>
 			<Card>
 				<CardHeader>

@@ -31,18 +31,23 @@ export default function EnterExamDetails() {
 	}
 
 	function next() {
-		const search = new URLSearchParams(params.toString());
+		const search = new URLSearchParams(params?.toString());
 		search.set("total_students", String(students));
 		search.set("sessions_per_day", String(sessionsPerDay));
 		search.set("subjects", encodeURIComponent(JSON.stringify(subjects)));
+		// Pass department name forward
+		const departmentName = params?.get("department_name");
+		if (departmentName) {
+			search.set("department_name", departmentName);
+		}
 		router.push(`/view-allocations?${search.toString()}`);
 	}
 
 	return (
 		<main className="container py-8">
 			<SummaryBar
-				cycle={params.get("cycle") || undefined}
-				phase={params.get("phase") || undefined}
+				cycle={params?.get("cycle") || undefined}
+				phase={params?.get("phase") || undefined}
 			/>
 			<Card>
 				<CardHeader>

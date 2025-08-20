@@ -114,9 +114,25 @@ export default function ViewAllocations() {
 	}
 
 	function goExport() {
-		const search = new URLSearchParams(params?.toString());
-		search.set("rows", encodeURIComponent(JSON.stringify(rows)));
-		router.push(`/export?${search.toString()}`);
+		// Persist payload in sessionStorage to avoid long URLs breaking the export
+		try {
+			const departmentName = params?.get("department_name") || "Department";
+			const facultyDirectory: Record<string, string> = Object.fromEntries(
+				availableFaculty.map((f) => [f.id, f.name])
+			);
+			const payload = {
+				rows,
+				assignedFaculty: assignedBySubjectDayLab,
+				facultyDirectory,
+				department_id: scheduleParams.departmentId,
+				department_name: departmentName,
+				total_students: scheduleParams.totalStudents || 0,
+				sessions_per_day: scheduleParams.sessionsPerDay || 0,
+			};
+			sessionStorage.setItem("export_payload_v1", JSON.stringify(payload));
+		} catch {}
+		// Navigate with a tiny query to force a fresh render, not the large data
+		router.push(`/export?from=view`);
 	}
 
 	async function saveToSupabase() {
@@ -194,6 +210,7 @@ export default function ViewAllocations() {
 												<TableRow>
 													<TableHead>Date</TableHead>
 													<TableHead>Session</TableHead>
+													<TableHead>Time</TableHead>
 													<TableHead>Lab</TableHead>
 													<TableHead>Students</TableHead>
 													<TableHead>Assigned Faculty</TableHead>
@@ -204,6 +221,7 @@ export default function ViewAllocations() {
 													<TableRow key={i}>
 														<TableCell>{r.date}</TableCell>
 														<TableCell>{r.session}</TableCell>
+														<TableCell>{r.time}</TableCell>
 														<TableCell>{r.labName}</TableCell>
 														<TableCell>{r.studentsAllocated}</TableCell>
 														<TableCell>{availableFaculty.find(f => f.id === assignedBySubjectDayLab[`${subj.code}|${r.date}|${r.labId || r.labName}`])?.name || "—"}</TableCell>
