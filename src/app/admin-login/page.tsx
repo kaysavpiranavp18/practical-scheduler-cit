@@ -23,26 +23,24 @@ export default function AdminLogin() {
 	}
 
 	return (
-		<main className="container py-8">
-			<Card className="max-w-md mx-auto">
+		<main className="py-6">
+			<Card className="card-enhanced max-w-md mx-auto">
 				<CardHeader>
-					<CardTitle>Admin Login</CardTitle>
+					<CardTitle className="text-gradient">Admin Login</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-3">
+				<CardContent className="space-y-5">
 					<div>
-						<Label>Email</Label>
-						<Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+						<Label className="text-sm text-muted-foreground">Email</Label>
+						<Input className="input-enhanced mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
 					</div>
 					<div>
-						<Label>Password</Label>
-						<Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+						<Label className="text-sm text-muted-foreground">Password</Label>
+						<Input className="input-enhanced mt-1" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
 					</div>
 					{error && <p className="text-sm text-red-600">{error}</p>}
-					<Button onClick={login} disabled={loading || !email || !password}>Login</Button>
+					<Button className="btn-gradient" onClick={login} disabled={loading || !email || !password}>Login</Button>
 				</CardContent>
 			</Card>
 		</main>
 	);
 }
-
-

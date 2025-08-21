@@ -1,11 +1,12 @@
 "use client";
-import SummaryBar from "@/components/SummaryBar";
+ 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const phases = [
 	{ id: "phase-1", label: "Phase 1 → IV Year (R2022)", map: { years: [4], regs: ["R2022"] } },
@@ -25,36 +26,38 @@ export default function SelectTimeAndPhase() {
 	}
 
 	return (
-		<main className="container py-8">
-			<SummaryBar />
-			<Card>
+		<main className="py-6">
+			<Card className="card-enhanced">
 				<CardHeader>
-					<CardTitle>Select Time Period & Phase</CardTitle>
+					<CardTitle className="text-gradient">Select Time Period & Phase</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-4">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<CardContent className="space-y-6">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 						<div>
-							<Label>Start Date</Label>
-							<Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+							<Label className="text-sm text-muted-foreground">Start Date</Label>
+							<Input className="input-enhanced mt-1" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
 						</div>
 						<div>
-							<Label>End Date</Label>
-							<Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+							<Label className="text-sm text-muted-foreground">End Date</Label>
+							<Input className="input-enhanced mt-1" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
 						</div>
 					</div>
 					<div className="space-y-2">
-						<Label>Phase</Label>
-						<select className="w-full border rounded-md p-2" value={phase} onChange={(e) => setPhase(e.target.value)}>
-							{phases.map((p) => (
-								<option key={p.id} value={p.id}>{p.label}</option>
-							))}
-						</select>
+						<Label className="text-sm text-muted-foreground">Phase</Label>
+						<Select value={phase} onValueChange={(v) => setPhase(v)}>
+							<SelectTrigger className="mt-1">
+								<SelectValue placeholder="Select phase" />
+							</SelectTrigger>
+							<SelectContent side="bottom">
+								{phases.map((p) => (
+									<SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
-					<Button onClick={next} disabled={!startDate || !endDate}>Next</Button>
+					<Button className="btn-gradient" onClick={next} disabled={!startDate || !endDate}>Next</Button>
 				</CardContent>
 			</Card>
 		</main>
 	);
 }
-
-

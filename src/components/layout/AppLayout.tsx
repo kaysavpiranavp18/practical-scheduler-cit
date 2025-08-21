@@ -29,11 +29,11 @@ export const AppLayout = ({ children, title, showBackButton, backTo }: AppLayout
                 </Button>
               )}
               <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-primary to-primary-light p-2 rounded-lg">
-                  <Calendar className="h-6 w-6 text-white" />
+                <div className="h-10 w-10 rounded-lg overflow-hidden bg-white shadow-md flex items-center justify-center">
+                  <img src="/cit-logo.png" alt="CIT Logo" className="h-10 w-10 object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">ExamFlow Scheduler</h1>
+                  <h1 className="text-xl font-bold text-foreground">Practicals Scheduler</h1>
                   <p className="text-sm text-muted-foreground">Chennai Institute of Technology</p>
                 </div>
               </div>

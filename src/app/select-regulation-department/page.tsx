@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import SummaryBar from "@/components/SummaryBar";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+ 
 
 type Option = { id: string; name: string };
 
@@ -50,35 +51,39 @@ export default function SelectRegulationDepartment() {
 	}
 
 	return (
-		<main className="container py-8">
-			<SummaryBar
-				cycle={params?.get("cycle") || undefined}
-				phase={params?.get("phase") || undefined}
-			/>
-			<Card>
+		<main className="py-6">
+			<Card className="card-enhanced">
 				<CardHeader>
-					<CardTitle>Select Regulation & Department</CardTitle>
+					<CardTitle className="text-gradient">Select Regulation & Department</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-4">
+				<CardContent className="space-y-6">
 					<div>
-						<Label>Regulation</Label>
-						<select className="w-full border rounded-md p-2" value={regId} onChange={(e) => setRegId(e.target.value)}>
-							<option value="">Select regulation</option>
-							{regulations.map((r) => (
-								<option key={r.id} value={r.id}>{r.name}</option>
-							))}
-						</select>
+						<Label className="text-sm text-muted-foreground">Regulation</Label>
+						<Select value={regId} onValueChange={(v) => setRegId(v)}>
+							<SelectTrigger className="mt-1">
+								<SelectValue placeholder="Select regulation" />
+							</SelectTrigger>
+							<SelectContent side="bottom">
+								{regulations.map((r) => (
+									<SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
 					<div>
-						<Label>Department</Label>
-						<select className="w-full border rounded-md p-2" value={deptId} onChange={(e) => setDeptId(e.target.value)} disabled={!regId}>
-							<option value="">Select department</option>
-							{departments.map((d) => (
-								<option key={d.id} value={d.id}>{d.name}</option>
-							))}
-						</select>
+						<Label className="text-sm text-muted-foreground">Department</Label>
+						<Select value={deptId} onValueChange={(v) => setDeptId(v)} disabled={!regId}>
+							<SelectTrigger className="mt-1">
+								<SelectValue placeholder="Select department" />
+							</SelectTrigger>
+							<SelectContent side="bottom">
+								{departments.map((d) => (
+									<SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
-					<Button onClick={next} disabled={!regId || !deptId}>Next</Button>
+					<Button className="btn-gradient" onClick={next} disabled={!regId || !deptId}>Next</Button>
 				</CardContent>
 			</Card>
 		</main>

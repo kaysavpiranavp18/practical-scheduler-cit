@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import SummaryBar from "@/components/SummaryBar";
+ 
 
 type Subject = { name: string; code: string };
 
@@ -44,45 +44,41 @@ export default function EnterExamDetails() {
 	}
 
 	return (
-		<main className="container py-8">
-			<SummaryBar
-				cycle={params?.get("cycle") || undefined}
-				phase={params?.get("phase") || undefined}
-			/>
-			<Card>
+		<main className="py-6">
+			<Card className="card-enhanced">
 				<CardHeader>
-					<CardTitle>Enter Exam Details</CardTitle>
+					<CardTitle className="text-gradient">Enter Exam Details</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-4">
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+				<CardContent className="space-y-6">
+					<div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
 						<div>
-							<Label>Total Students</Label>
-							<Input type="number" value={students || ""} onChange={(e) => setStudents(Number(e.target.value))} />
+							<Label className="text-sm text-muted-foreground">Total Students</Label>
+							<Input className="input-enhanced mt-1" type="number" value={students || ""} onChange={(e) => setStudents(Number(e.target.value))} />
 						</div>
 						<div>
-							<Label>Sessions per day</Label>
-							<Input type="number" min={1} value={sessionsPerDay} onChange={(e) => setSessionsPerDay(Number(e.target.value))} />
+							<Label className="text-sm text-muted-foreground">Sessions per day</Label>
+							<Input className="input-enhanced mt-1" type="number" min={1} value={sessionsPerDay} onChange={(e) => setSessionsPerDay(Number(e.target.value))} />
 						</div>
 						<div>
-							<Label>Number of subjects</Label>
-							<Input type="number" min={1} value={numSubjects} onChange={(e) => onNumSubjectsChange(Number(e.target.value))} />
+							<Label className="text-sm text-muted-foreground">Number of subjects</Label>
+							<Input className="input-enhanced mt-1" type="number" min={1} value={numSubjects} onChange={(e) => onNumSubjectsChange(Number(e.target.value))} />
 						</div>
 					</div>
 					<div className="space-y-3">
 						{Array.from({ length: numSubjects }).map((_, i) => (
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-2" key={i}>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4" key={i}>
 								<div>
-									<Label>Subject Name #{i + 1}</Label>
-									<Input value={subjects[i]?.name || ""} onChange={(e) => updateSubject(i, "name", e.target.value)} />
+									<Label className="text-sm text-muted-foreground">Subject Name #{i + 1}</Label>
+									<Input className="input-enhanced mt-1" value={subjects[i]?.name || ""} onChange={(e) => updateSubject(i, "name", e.target.value)} />
 								</div>
 								<div>
-									<Label>Subject Code #{i + 1}</Label>
-									<Input value={subjects[i]?.code || ""} onChange={(e) => updateSubject(i, "code", e.target.value)} />
+									<Label className="text-sm text-muted-foreground">Subject Code #{i + 1}</Label>
+									<Input className="input-enhanced mt-1" value={subjects[i]?.code || ""} onChange={(e) => updateSubject(i, "code", e.target.value)} />
 								</div>
 							</div>
 						))}
 					</div>
-					<Button onClick={next} disabled={!students || subjects.some((s) => !s.name || !s.code)}>Next</Button>
+					<Button className="btn-gradient" onClick={next} disabled={!students || subjects.some((s) => !s.name || !s.code)}>Next</Button>
 				</CardContent>
 			</Card>
 		</main>

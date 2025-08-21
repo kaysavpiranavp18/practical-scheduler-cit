@@ -228,14 +228,18 @@ export default function ExportPage() {
 	}
 
 	return (
-		<main className="container py-8 space-y-4">
-			<div className="flex gap-3">
-				<Button onClick={exportCSV} disabled={!rows.length}>Download CSV</Button>
-				<Button onClick={exportPDF} disabled={!rows.length}>Download PDF</Button>
-			</div>
-			<p className="text-sm text-muted-foreground">Return to previous page to regenerate allocations if needed.</p>
+		<main className="py-6">
+			<section className="card-enhanced">
+				<div className="flex items-center justify-between mb-4">
+					<h1 className="text-xl text-gradient">Export Allocations</h1>
+					<span className="text-xs text-muted-foreground">CSV / PDF</span>
+				</div>
+				<div className="flex flex-wrap gap-3">
+					<Button className="btn-gradient" onClick={exportCSV} disabled={!rows.length}>Download CSV</Button>
+					<Button className="btn-glass" onClick={exportPDF} disabled={!rows.length}>Download PDF</Button>
+				</div>
+				<p className="mt-3 text-sm text-muted-foreground">Return to the previous page to regenerate allocations if needed.</p>
+			</section>
 		</main>
 	);
 }
-
-

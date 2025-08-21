@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateAllocations, type AllocationRow } from "@/lib/allocation";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
-import SummaryBar from "@/components/SummaryBar";
 
 type Faculty = { id: string; name: string; years_of_experience: number };
 
@@ -226,21 +226,20 @@ export default function ViewAllocations() {
 	}
 
 	return (
-		<main className="container py-8">
-			<SummaryBar cycle={scheduleParams.cycle || undefined} phase={params?.get("phase") || undefined} />
-			<Card>
+		<main className="py-6">
+			<Card className="card-enhanced">
 				<CardHeader>
-					<CardTitle>Allocations</CardTitle>
+					<CardTitle className="text-gradient">Allocations</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-4">
+				<CardContent className="space-y-6">
 					<div className="space-y-6">
 						{/* Subject-wise allocations with per-day & lab internal assignment under each subject */}
 						{scheduleParams.subjects.map((subj: any) => {
 							const subRows = rows.filter(r => r.subjectCode === subj.code);
 							const subDayLabKeys = Array.from(new Set(subRows.map(r => `${r.date}|${r.labName}|${r.labId || r.labName}`))).map(k => { const [date, labName, labId] = k.split("|"); return { date, labName, labId }; });
 							return (
-								<div key={subj.code} className="border rounded-md">
-									<div className="px-4 py-3 bg-muted/40 border-b">
+								<div key={subj.code} className="rounded-xl border border-border/40 overflow-hidden">
+									<div className="px-4 py-3 bg-white/70 backdrop-blur-sm border-b">
 										<div className="flex items-center justify-between">
 											<div>
 												<p className="font-medium">{subj.name} ({subj.code})</p>
@@ -255,24 +254,24 @@ export default function ViewAllocations() {
 											const takenForDay = new Set(
 												Object.entries(assignedBySubjectDayLab)
 													.filter(([k]) => k.split('|')[1] === date)
-													.map(([, v]) => v)
+													.map(([, v]) => v as string)
 											);
 											const currentKey = `${subj.code}|${date}|${labId}`;
 											return (
-												<div key={`${subj.code}|${date}|${labId}`} className="border rounded p-3 space-y-2">
+												<div key={`${subj.code}|${date}|${labId}`} className="glass p-3 space-y-2">
 													<p className="text-sm font-medium">{labName} — {date}</p>
-													<select
-														className="w-full border rounded-md p-2"
-														value={assignedBySubjectDayLab[currentKey] || ""}
-														onChange={(e) => onSelectFacultyForSubjectDayLab(subj.code, date, labId, e.target.value)}
-													>
-														<option value="">Select faculty</option>
-														{availableFaculty
-															.filter((f) => !takenForDay.has(f.id) || assignedBySubjectDayLab[currentKey] === f.id)
-															.map((f) => (
-																<option key={f.id} value={f.id}>{f.name} ({f.years_of_experience} YOE)</option>
-															))}
-													</select>
+													<Select value={assignedBySubjectDayLab[currentKey] || ""} onValueChange={(v) => onSelectFacultyForSubjectDayLab(subj.code, date, labId, v)}>
+														<SelectTrigger className="mt-1">
+															<SelectValue placeholder="Select faculty" />
+														</SelectTrigger>
+														<SelectContent side="bottom">
+															{availableFaculty
+																.filter((f) => !takenForDay.has(f.id) || assignedBySubjectDayLab[currentKey] === f.id)
+																.map((f) => (
+																	<SelectItem key={f.id} value={f.id}>{f.name} ({f.years_of_experience} YOE)</SelectItem>
+																))}
+														</SelectContent>
+													</Select>
 												</div>
 											);
 										})}
@@ -291,7 +290,7 @@ export default function ViewAllocations() {
 												</TableRow>
 											</TableHeader>
 											<TableBody>
-												{subRows.map((r, i) => (
+												{subRows.map((r: any, i: number) => (
 													<TableRow key={i}>
 														<TableCell>{r.date}</TableCell>
 														<TableCell>{r.session}</TableCell>
@@ -330,7 +329,7 @@ export default function ViewAllocations() {
 					</div>
 
 					<div className="flex gap-3">
-						<Button onClick={goExport} disabled={!rows.length}>Export</Button>
+						<Button className="btn-gradient" onClick={goExport} disabled={!rows.length}>Export</Button>
 						<Button variant="secondary" onClick={saveAllocationLocally} disabled={!rows.length || !scheduleParams.departmentId}>Save Allocation</Button>
 						<Button variant="outline" onClick={exportAllSaved} disabled={!saved.length}>Export Saved List</Button>
 					</div>
@@ -339,5 +338,4 @@ export default function ViewAllocations() {
 		</main>
 	);
 }
-
 

@@ -22,8 +22,13 @@ export default function SummaryBar({ cycle, phase }: Props) {
 	const title = `END-SEMESTER PRACTICAL EXAMINATION - ${cycleText}${phaseText ? ` (${phaseText})` : ""}`;
 
 	return (
-		<div className="mb-3">
-			<p className="text-xl md:text-2xl font-semibold tracking-wide">{title}</p>
+		<div className="mb-6">
+			<div className="glass p-4 rounded-xl hover-lift">
+				<p className="text-lg md:text-2xl font-semibold tracking-wide text-gradient">
+					{title}
+				</p>
+				<div className="mt-2 h-1 progress-bar w-full" />
+			</div>
 		</div>
 	);
 }
