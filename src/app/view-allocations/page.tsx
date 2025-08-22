@@ -45,6 +45,8 @@ export default function ViewAllocations() {
 			totalStudents: Number(params?.get("total_students") || 0),
 			departmentId: params?.get("department_id") || "",
 			cycle: params?.get("cycle") || "",
+			regulationId: params?.get("regulation_id") || "",
+			phase: params?.get("phase") || "",
 			subjects: (() => {
 				const raw = params?.get("subjects");
 				if (!raw) return [] as { name: string; code: string }[];
@@ -102,26 +104,49 @@ export default function ViewAllocations() {
 	// subject|date|lab -> facultyId
 	const [assignedBySubjectDayLab, setAssignedBySubjectDayLab] = useState<Record<string, string>>({});
 
+	const hasAssigned = useMemo(() => {
+		return rows.some((r: any) => {
+			const key = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
+			return Boolean(assignedBySubjectDayLab[key]);
+		});
+	}, [rows, assignedBySubjectDayLab]);
+
 	function onSelectFacultyForSubjectDayLab(subjectCode: string, date: string, labId: string, facultyId: string) {
-		if (!facultyId) return;
-		const f = availableFaculty.find((x) => x.id === facultyId);
-		if (f && f.years_of_experience < 2) {
-			toast.warning(`${f.name} has less than 2 years experience`);
-			return; // do not assign
-		}
-		const key = `${subjectCode}|${date}|${labId}`;
-		setAssignedBySubjectDayLab(prev => ({ ...prev, [key]: facultyId }));
-	}
+    if (!facultyId) return;
+    const f = availableFaculty.find((x) => x.id === facultyId);
+    if (f && f.years_of_experience < 2) {
+        toast.warning(`${f.name} has less than 2 years experience`);
+        return; // do not assign
+    }
+    // Prevent the same teacher being allocated for other subjects on the same day
+    const key = `${subjectCode}|${date}|${labId}`;
+    const takenForDay = new Set(
+        Object.entries(assignedBySubjectDayLab)
+            .filter(([k]) => k.split('|')[1] === date && k !== key)
+            .map(([, v]) => v as string)
+    );
+    if (takenForDay.has(facultyId)) {
+        toast.error("This faculty is already assigned on this date for another subject");
+        return;
+    }
+    setAssignedBySubjectDayLab(prev => ({ ...prev, [key]: facultyId }));
+}
 
 	function goExport() {
-		// Persist payload in sessionStorage to avoid long URLs breaking the export
 		try {
+			// Ensure multi-dept export state does not leak into current export
+			try { sessionStorage.removeItem("export_payload_multi_v1"); } catch {}
 			const departmentName = params?.get("department_name") || "Department";
 			const facultyDirectory: Record<string, string> = Object.fromEntries(
 				availableFaculty.map((f) => [f.id, f.name])
 			);
+			// Only include allocations where a faculty has been assigned for this dept
+			const filteredRows = rows.filter((r: any) => {
+				const key = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
+				return Boolean(assignedBySubjectDayLab[key]);
+			});
 			const payload = {
-				rows,
+				rows: filteredRows,
 				assignedFaculty: assignedBySubjectDayLab,
 				facultyDirectory,
 				department_id: scheduleParams.departmentId,
@@ -129,16 +154,22 @@ export default function ViewAllocations() {
 				total_students: scheduleParams.totalStudents || 0,
 				sessions_per_day: scheduleParams.sessionsPerDay || 0,
 			};
+			if (!filteredRows.length) {
+				toast.error("No allocations assigned yet to export for this department");
+				return;
+			}
 			sessionStorage.setItem("export_payload_v1", JSON.stringify(payload));
 		} catch {}
 		// Navigate with a tiny query to force a fresh render, not the large data
 		router.push(`/export?from=view`);
 	}
 
-	// Local Saved Allocations per Department
+	// Local Saved Allocations per Department/Regulation/Phase
 	type SavedPayload = {
 		department_id: string;
 		department_name: string;
+		regulation_id: string;
+		phase: string;
 		rows: AllocationRow[];
 		assignedFaculty: Record<string, string>;
 		facultyDirectory: Record<string, string>;
@@ -148,6 +179,7 @@ export default function ViewAllocations() {
 	};
 
 	const [saved, setSaved] = useState<SavedPayload[]>([]);
+	const [selectedSaved, setSelectedSaved] = useState<SavedPayload | null>(null);
 
 	useEffect(() => {
 		try {
@@ -163,7 +195,7 @@ export default function ViewAllocations() {
 	}
 
 	function saveAllocationLocally() {
-		if (!rows.length || !scheduleParams.departmentId) {
+		if (!rows.length || !scheduleParams.departmentId || !scheduleParams.phase) {
 			toast.error("Nothing to save yet");
 			return;
 		}
@@ -174,6 +206,8 @@ export default function ViewAllocations() {
 		const payload: SavedPayload = {
 			department_id: scheduleParams.departmentId,
 			department_name: departmentName,
+			regulation_id: scheduleParams.regulationId || "",
+			phase: scheduleParams.phase,
 			rows,
 			assignedFaculty: assignedBySubjectDayLab,
 			facultyDirectory,
@@ -181,7 +215,7 @@ export default function ViewAllocations() {
 			sessions_per_day: scheduleParams.sessionsPerDay || 0,
 			createdAt: Date.now(),
 		};
-		const existingIdx = saved.findIndex(s => s.department_id === payload.department_id);
+		const existingIdx = saved.findIndex(s => s.department_id === payload.department_id && s.phase === payload.phase && s.regulation_id === payload.regulation_id);
 		let next: SavedPayload[];
 		if (existingIdx >= 0) {
 			next = saved.slice();
@@ -194,34 +228,54 @@ export default function ViewAllocations() {
 	}
 
 	function removeSaved(departmentId: string) {
-		const next = saved.filter(s => s.department_id !== departmentId);
-		persistSaved(next);
-	}
+    const next = saved.filter(s => !(
+        s.department_id === departmentId &&
+        s.phase === scheduleParams.phase &&
+        s.regulation_id === scheduleParams.regulationId
+    ));
+    persistSaved(next);
+}
 
-	function startDrag(index: number, ev: React.DragEvent<HTMLDivElement>) {
-		ev.dataTransfer.setData("text/plain", String(index));
-	}
-	function onDragOver(ev: React.DragEvent<HTMLDivElement>) { ev.preventDefault(); }
-	function onDrop(targetIndex: number, ev: React.DragEvent<HTMLDivElement>) {
-		ev.preventDefault();
-		const src = Number(ev.dataTransfer.getData("text/plain"));
-		if (Number.isNaN(src) || src === targetIndex) return;
-		const next = saved.slice();
-		const [item] = next.splice(src, 1);
-		next.splice(targetIndex, 0, item);
-		persistSaved(next);
-	}
+function onDragOver(ev: React.DragEvent<HTMLDivElement>) {
+    ev.preventDefault();
+    try { ev.dataTransfer.dropEffect = 'move'; } catch {}
+}
 
-	function viewSaved(deptId: string) {
-		const p = saved.find(s => s.department_id === deptId);
-		if (!p) return;
-		try { sessionStorage.setItem("export_payload_v1", JSON.stringify(p)); } catch {}
-		router.push(`/export?from=saved&dept=${encodeURIComponent(deptId)}`);
-	}
+function startDrag(index: number, ev: React.DragEvent<HTMLDivElement>) {
+    try { ev.dataTransfer.effectAllowed = 'move'; } catch {}
+    ev.dataTransfer.setData("text/plain", String(index));
+}
+
+function onDrop(targetIndex: number, ev: React.DragEvent<HTMLDivElement>) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const src = Number(ev.dataTransfer.getData("text/plain"));
+    if (Number.isNaN(src) || src === targetIndex) return;
+    // Reorder within filtered list and merge back into full list
+    const indices = saved.map((s, i) => ({ s, i }))
+        .filter(x => x.s.phase === scheduleParams.phase && x.s.regulation_id === scheduleParams.regulationId)
+        .map(x => x.i);
+    if (!indices.length) return;
+    const subset = indices.map(i => saved[i]);
+    if (!subset[src] || targetIndex < 0 || targetIndex >= subset.length) return;
+    const [moved] = subset.splice(src, 1);
+    subset.splice(targetIndex, 0, moved);
+    const next = saved.slice();
+    indices.forEach((idx, k) => { next[idx] = subset[k]; });
+    persistSaved(next);
+}
+
+function viewSaved(departmentId: string) {
+    const p = saved.find(s => s.department_id === departmentId && s.phase === scheduleParams.phase && s.regulation_id === scheduleParams.regulationId);
+    if (!p) return;
+    setSelectedSaved(p);
+}
+
+	const filteredSaved = useMemo(() => saved.filter(s => s.phase === scheduleParams.phase && s.regulation_id === scheduleParams.regulationId), [saved, scheduleParams.phase, scheduleParams.regulationId]);
 
 	function exportAllSaved() {
-		if (!saved.length) return;
-		try { sessionStorage.setItem("export_payload_multi_v1", JSON.stringify(saved)); } catch {}
+		if (!filteredSaved.length) return;
+		try { sessionStorage.setItem("export_payload_multi_v1", JSON.stringify(filteredSaved)); } catch {}
 		router.push(`/export?multi=1`);
 	}
 
@@ -307,13 +361,11 @@ export default function ViewAllocations() {
 							);
 						})}
 					</div>
-
-					{/* Saved allocations section with drag-and-drop */}
-					<div className="space-y-2">
-						<p className="font-medium">Saved allocations (reorder to set priority)</p>
-						<div className="grid gap-2">
-							{saved.map((s, idx) => (
-								<div key={s.department_id} draggable onDragStart={(e) => startDrag(idx, e)} onDragOver={onDragOver} onDrop={(e) => onDrop(idx, e)} className="border rounded p-3 flex items-center justify-between">
+					<div className="mt-8 space-y-3">
+						<p className="text-sm font-medium">Saved Allocations</p>
+						<div className="space-y-2">
+							{filteredSaved.map((s, idx) => (
+								<div key={`${s.department_id}-${s.phase}-${s.regulation_id}`} draggable onDragStart={(e) => startDrag(idx, e)} onDragOver={onDragOver} onDrop={(e) => onDrop(idx, e)} className="border rounded p-3 flex items-center justify-between">
 									<div>
 										<p className="font-medium">{s.department_name}</p>
 										<p className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</p>
@@ -324,14 +376,21 @@ export default function ViewAllocations() {
 									</div>
 								</div>
 							))}
-							{saved.length === 0 && <p className="text-sm text-muted-foreground">No saved allocations yet.</p>}
+							{!filteredSaved.length && (
+								<p className="text-sm text-muted-foreground">No saved allocations yet for this phase/regulation.</p>
+							)}
 						</div>
-					</div>
-
-					<div className="flex gap-3">
-						<Button className="btn-gradient" onClick={goExport} disabled={!rows.length}>Export</Button>
-						<Button variant="secondary" onClick={saveAllocationLocally} disabled={!rows.length || !scheduleParams.departmentId}>Save Allocation</Button>
-						<Button variant="outline" onClick={exportAllSaved} disabled={!saved.length}>Export Saved List</Button>
+						<div className="flex flex-wrap gap-2 pt-2">
+							<Button variant="secondary" onClick={goExport} disabled={!rows.length || !hasAssigned}>Export Current</Button>
+							<Button onClick={saveAllocationLocally} disabled={!rows.length || !scheduleParams.departmentId || !scheduleParams.phase}>Save Allocation</Button>
+							<Button variant="outline" onClick={exportAllSaved} disabled={!filteredSaved.length}>Export Saved List</Button>
+						</div>
+						{selectedSaved && (
+							<div className="mt-6 border rounded p-4 bg-white/70">
+								<p className="font-medium mb-2">Saved Summary — {selectedSaved.department_name}</p>
+								<SavedSummaryPanel pack={selectedSaved} />
+							</div>
+						)}
 					</div>
 				</CardContent>
 			</Card>
@@ -339,3 +398,61 @@ export default function ViewAllocations() {
 	);
 }
 
+// Lightweight summary component (internal to this file)
+function SavedSummaryPanel({ pack }: { pack: {
+    rows: AllocationRow[];
+    assignedFaculty: Record<string, string>;
+    facultyDirectory: Record<string, string>;
+    department_id: string; department_name: string;
+    total_students: number; sessions_per_day: number;
+}}) {
+    const dates = Array.from(new Set(pack.rows.map((r: any) => r.date))).sort();
+    const subjects = Array.from(new Set(pack.rows.map((r: any) => `${r.subjectCode}|${r.subjectName}`)));
+    const totalSessions = pack.rows.length;
+    const facultyIds = new Set(Object.values(pack.assignedFaculty || {}));
+    const facultyNames = Array.from(facultyIds).map((id) => pack.facultyDirectory?.[String(id)] || String(id)).filter(Boolean);
+
+    const perSubject: Array<{ code: string; name: string; sessions: number; days: number }> = subjects.map((s) => {
+        const [code, name] = s.split("|");
+        const group = pack.rows.filter((r: any) => r.subjectCode === code);
+        const days = new Set(group.map((g: any) => g.date)).size;
+        return { code, name, sessions: group.length, days };
+    }).sort((a, b) => a.code.localeCompare(b.code));
+
+    return (
+        <div className="space-y-3 text-sm">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-2 rounded border bg-white">Total Subjects: <b>{subjects.length}</b></div>
+                <div className="p-2 rounded border bg-white">Total Sessions: <b>{totalSessions}</b></div>
+                <div className="p-2 rounded border bg-white">Unique Days: <b>{dates.length}</b></div>
+                <div className="p-2 rounded border bg-white">Faculty Involved: <b>{facultyIds.size}</b></div>
+            </div>
+            <div>
+                <p className="text-muted-foreground">Dates: {dates.join(", ") || "—"}</p>
+                <p className="text-muted-foreground">Faculty: {facultyNames.join(", ") || "—"}</p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                    <thead>
+                        <tr className="border-b">
+                            <th className="py-1 pr-2">Subject</th>
+                            <th className="py-1 pr-2">Code</th>
+                            <th className="py-1 pr-2">Sessions</th>
+                            <th className="py-1 pr-2">Days</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {perSubject.map((p) => (
+                            <tr key={p.code} className="border-b last:border-0">
+                                <td className="py-1 pr-2">{p.name}</td>
+                                <td className="py-1 pr-2">{p.code}</td>
+                                <td className="py-1 pr-2">{p.sessions}</td>
+                                <td className="py-1 pr-2">{p.days}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}

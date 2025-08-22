@@ -18,7 +18,7 @@ export const AppLayout = ({ children, title, showBackButton, backTo }: AppLayout
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-border shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14">
             <div className="flex items-center space-x-4">
               {showBackButton && backTo && (
                 <Button variant="ghost" size="sm" asChild>
@@ -49,18 +49,18 @@ export const AppLayout = ({ children, title, showBackButton, backTo }: AppLayout
 
       {/* Page Title */}
       <div className="bg-white/50 backdrop-blur-sm border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <h2 className="text-2xl font-bold text-foreground">{title}</h2>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>
 
       {/* Footer */}
-      <footer className="bg-white/80 backdrop-blur-sm border-t border-border mt-16">
+      <footer className="bg-white/80 backdrop-blur-sm border-t border-border mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center text-sm text-muted-foreground">
             <p>&copy; 2025 Chennai Institute of Technology. All rights reserved.</p>

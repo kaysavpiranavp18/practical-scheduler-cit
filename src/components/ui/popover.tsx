@@ -10,10 +10,11 @@ const PopoverTrigger = PopoverPrimitive.Trigger
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+>(({ className, align = "center", side = "bottom", sideOffset = 4, ...props }, ref) => (
   <PopoverPrimitive.Portal>
     <PopoverPrimitive.Content
       ref={ref}
+      side={side}
       align={align}
       sideOffset={sideOffset}
       className={cn(

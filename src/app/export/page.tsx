@@ -8,10 +8,12 @@ export default function ExportPage() {
 	const params = useSearchParams();
 	const multiSaved = useMemo(() => {
 		try {
+			const isMulti = params?.get("multi") === "1";
+			if (!isMulti) return null;
 			const raw = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_multi_v1") : null;
 			return raw ? JSON.parse(raw) : null;
 		} catch { return null; }
-	}, []);
+	}, [params]);
 	const rows = useMemo(() => {
 		try {
 			const payload = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_v1") : null;
@@ -70,35 +72,60 @@ export default function ExportPage() {
 	}, [params]);
 
 	function exportCSV() {
-		const headers = ["Date", "Session", "Time", "Lab Name", "Subject Code", "Subject Name", "Students Allocated", "Assigned Faculty"];
-		
-		// Create CSV content with proper escaping for multiple subjects
-		const csvRows = rows.map((r: any) => {
-			// Get faculty from the assigned faculty data
-			const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
-			const facultyName = (assignedFaculty as any)[facultyKey] || "Not Assigned";
-			
-			return [
-				r.date,
-				r.session,
-				r.time,
-				`"${r.labName}"`,
-				r.subjectCode,
-				`"${r.subjectName}"`,
-				r.studentsAllocated,
-				facultyName
-			].join(",");
-		});
-		
-		const csv = [headers.join(","), ...csvRows].join("\n");
-		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = "allocations.csv";
-		a.click();
-		URL.revokeObjectURL(url);
-	}
+        // If multiple saved packs exist, include department columns and flatten all rows preserving order
+        const packs = Array.isArray(multiSaved) && multiSaved.length
+            ? multiSaved
+            : [{
+                rows,
+                assignedFaculty,
+                facultyDirectory,
+                department_id: meta.department_id,
+                department_name: meta.department_name,
+            }];
+
+        const headers = [
+            ...(packs.length > 1 ? ["Department ID", "Department Name"] : []),
+            "Date", "Session", "Time", "Lab Name", "Subject Code", "Subject Name", "Students Allocated", "Assigned Faculty"
+        ];
+
+        const csvRows: string[] = [];
+        packs.forEach((pack: any) => {
+            const localRows: any[] = pack.rows || [];
+            const localAssigned: Record<string, string> = pack.assignedFaculty || {};
+            const localDir: Record<string, string> = pack.facultyDirectory || {};
+            const deptId = pack.department_id || meta.department_id;
+            const deptName = pack.department_name || meta.department_name;
+
+            localRows.forEach((r: any) => {
+                const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
+                const facultyId = (localAssigned as any)[facultyKey];
+                const facultyName = (localDir as any)[String(facultyId)] || facultyId || "Not Assigned";
+                const base = [
+                    r.date,
+                    r.session,
+                    r.time,
+                    `"${String(r.labName).replace(/\"/g, '""')}"`,
+                    r.subjectCode,
+                    `"${String(r.subjectName).replace(/\"/g, '""')}"`,
+                    r.studentsAllocated,
+                    `"${String(facultyName).replace(/\"/g, '""')}"`,
+                ];
+                const row = packs.length > 1
+                    ? [deptId, `"${String(deptName).replace(/\"/g, '""')}"`, ...base]
+                    : base;
+                csvRows.push(row.join(","));
+            });
+        });
+
+        const csv = [headers.join(","), ...csvRows].join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = packs.length > 1 ? "allocations_all_departments.csv" : "allocations.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+}
 
 	function exportPDF() {
 		const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -219,12 +246,25 @@ export default function ExportPage() {
 				if (idx > 0) doc.addPage();
 				renderOne(pack);
 			});
-			doc.save("Internal_Examiner_Allotted_Report_All_Departments.pdf");
+			// Prefer opening in a new tab via blob URL (reduces Chrome insecure download warnings)
+			try {
+				const url = doc.output('bloburl');
+				const w = window.open(url, '_blank', 'noopener,noreferrer');
+				if (!w) throw new Error('popup blocked');
+			} catch {
+				doc.save("Internal_Examiner_Allotted_Report_All_Departments.pdf");
+			}
 			return;
 		}
 
 		renderOne({});
-		doc.save("Internal_Examiner_Allotted_Report.pdf");
+		try {
+			const url = doc.output('bloburl');
+			const w = window.open(url, '_blank', 'noopener,noreferrer');
+			if (!w) throw new Error('popup blocked');
+		} catch {
+			doc.save("Internal_Examiner_Allotted_Report.pdf");
+		}
 	}
 
 	return (
