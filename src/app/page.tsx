@@ -23,6 +23,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [phase, setPhase] = useState<string>("phase-1");
+  const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     const cycleParam = searchParams?.get("cycle");
@@ -66,11 +67,35 @@ export default function Home() {
             </div>
             <div>
               <Label className="text-sm text-muted-foreground">Start Date</Label>
-              <Input className="input-enhanced mt-1" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Input
+                className="input-enhanced mt-1"
+                type="date"
+                min={today}
+                value={startDate}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const clamped = v && v < today ? today : v;
+                  setStartDate(clamped);
+                  if (endDate && clamped && endDate < clamped) {
+                    setEndDate(clamped);
+                  }
+                }}
+              />
             </div>
             <div>
               <Label className="text-sm text-muted-foreground">End Date</Label>
-              <Input className="input-enhanced mt-1" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Input
+                className="input-enhanced mt-1"
+                type="date"
+                min={startDate || today}
+                value={endDate}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const min = startDate || today;
+                  const clamped = v && v < min ? min : v;
+                  setEndDate(clamped);
+                }}
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -86,7 +111,7 @@ export default function Home() {
               </SelectContent>
             </Select>
           </div>
-          <Button className="btn-gradient" onClick={next} disabled={!startDate || !endDate}>Next</Button>
+          <Button className="btn-gradient" onClick={next} disabled={!startDate || !endDate || endDate < startDate}>Next</Button>
         </CardContent>
       </Card>
     </main>

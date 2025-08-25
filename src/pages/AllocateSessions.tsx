@@ -218,6 +218,7 @@ export default function AllocateSessions() {
         session_date: session.date,
         student_count: session.studentsCount,
         assigned_faculty_id: session.assignedFacultyId,
+        phase_id: phase || null,
       }));
 
       const { error } = await supabase

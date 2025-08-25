@@ -32,11 +32,46 @@ interface SavedAllocation {
 }
 
 export default function ExportPage() {
+<<<<<<< HEAD
   const params = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
   const [assignedFaculty, setAssignedFaculty] = useState<AssignedFacultyMap>({});
   const [savedAllocations, setSavedAllocations] = useState<SavedAllocation[]>([]);
   const [isMultiExport, setIsMultiExport] = useState(false);
+=======
+	const params = useSearchParams();
+	const multiSaved = useMemo(() => {
+		try {
+			const isMulti = params?.get("multi") === "1";
+			if (!isMulti) return null;
+			const raw = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_multi_v1") : null;
+			return raw ? JSON.parse(raw) : null;
+		} catch { return null; }
+	}, [params]);
+	const rows = useMemo(() => {
+		try {
+			const payload = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_v1") : null;
+			if (payload) {
+				const parsed = JSON.parse(payload);
+				if (Array.isArray(parsed?.rows)) return parsed.rows;
+			}
+		} catch {}
+		const raw = params?.get("rows");
+		try { return raw ? JSON.parse(decodeURIComponent(raw)) : []; } catch { return []; }
+	}, [params]);
+	
+	const assignedFaculty = useMemo(() => {
+		try {
+			const payload = typeof window !== 'undefined' ? sessionStorage.getItem("export_payload_v1") : null;
+			if (payload) {
+				const parsed = JSON.parse(payload);
+				if (parsed?.assignedFaculty && typeof parsed.assignedFaculty === 'object') return parsed.assignedFaculty;
+			}
+		} catch {}
+		const raw = params?.get("assignedFaculty");
+		try { return raw ? JSON.parse(decodeURIComponent(raw)) : {}; } catch { return {}; }
+	}, [params]);
+>>>>>>> ab508c11417096636cd1362dfbd053dfdd9d4919
 
   useEffect(() => {
     try {
@@ -71,6 +106,7 @@ export default function ExportPage() {
     }
   }, [params]);
 
+<<<<<<< HEAD
   /* CSV Export for single allocation */
   const exportCSV = () => {
     const headers = [
@@ -85,6 +121,63 @@ export default function ExportPage() {
       "Students Allocated",
       "Assigned Faculty",
     ];
+=======
+	function exportCSV() {
+        // If multiple saved packs exist, include department columns and flatten all rows preserving order
+        const packs = Array.isArray(multiSaved) && multiSaved.length
+            ? multiSaved
+            : [{
+                rows,
+                assignedFaculty,
+                facultyDirectory,
+                department_id: meta.department_id,
+                department_name: meta.department_name,
+            }];
+
+        const headers = [
+            ...(packs.length > 1 ? ["Department ID", "Department Name"] : []),
+            "Date", "Session", "Time", "Lab Name", "Subject Code", "Subject Name", "Students Allocated", "Assigned Faculty"
+        ];
+
+        const csvRows: string[] = [];
+        packs.forEach((pack: any) => {
+            const localRows: any[] = pack.rows || [];
+            const localAssigned: Record<string, string> = pack.assignedFaculty || {};
+            const localDir: Record<string, string> = pack.facultyDirectory || {};
+            const deptId = pack.department_id || meta.department_id;
+            const deptName = pack.department_name || meta.department_name;
+
+            localRows.forEach((r: any) => {
+                const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
+                const facultyId = (localAssigned as any)[facultyKey];
+                const facultyName = (localDir as any)[String(facultyId)] || facultyId || "Not Assigned";
+                const base = [
+                    r.date,
+                    r.session,
+                    r.time,
+                    `"${String(r.labName).replace(/\"/g, '""')}"`,
+                    r.subjectCode,
+                    `"${String(r.subjectName).replace(/\"/g, '""')}"`,
+                    r.studentsAllocated,
+                    `"${String(facultyName).replace(/\"/g, '""')}"`,
+                ];
+                const row = packs.length > 1
+                    ? [deptId, `"${String(deptName).replace(/\"/g, '""')}"`, ...base]
+                    : base;
+                csvRows.push(row.join(","));
+            });
+        });
+
+        const csv = [headers.join(","), ...csvRows].join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = packs.length > 1 ? "allocations_all_departments.csv" : "allocations.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+}
+>>>>>>> ab508c11417096636cd1362dfbd053dfdd9d4919
 
     const csvRows = rows.map((r) => {
       const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
@@ -196,6 +289,7 @@ export default function ExportPage() {
     doc.setFontSize(13);
     doc.text("Internal Examiner Allotted Report", 105, 47, { align: "center" });
 
+<<<<<<< HEAD
     let y = 57; // Adjusted starting Y position
 
     // Group rows by department
@@ -205,6 +299,33 @@ export default function ExportPage() {
       acc[dept].rows.push(row);
       return acc;
     }, {} as Record<string, { name: string; rows: Row[] }>);
+=======
+		if (Array.isArray(multiSaved) && multiSaved.length) {
+			multiSaved.forEach((pack: any, idx: number) => {
+				if (idx > 0) doc.addPage();
+				renderOne(pack);
+			});
+			// Prefer opening in a new tab via blob URL (reduces Chrome insecure download warnings)
+			try {
+				const url = doc.output('bloburl');
+				const w = window.open(url, '_blank', 'noopener,noreferrer');
+				if (!w) throw new Error('popup blocked');
+			} catch {
+				doc.save("Internal_Examiner_Allotted_Report_All_Departments.pdf");
+			}
+			return;
+		}
+
+		renderOne({});
+		try {
+			const url = doc.output('bloburl');
+			const w = window.open(url, '_blank', 'noopener,noreferrer');
+			if (!w) throw new Error('popup blocked');
+		} catch {
+			doc.save("Internal_Examiner_Allotted_Report.pdf");
+		}
+	}
+>>>>>>> ab508c11417096636cd1362dfbd053dfdd9d4919
 
     for (const deptId of Object.keys(grouped)) {
       const dept = grouped[deptId];
