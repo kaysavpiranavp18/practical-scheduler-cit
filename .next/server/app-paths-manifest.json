@@ -1,7 +1,7 @@
 {
+  "/select-regulation-department/page": "app/select-regulation-department/page.js",
   "/page": "app/page.js",
   "/enter-exam-details/page": "app/enter-exam-details/page.js",
-  "/select-regulation-department/page": "app/select-regulation-department/page.js",
-  "/view-allocations/page": "app/view-allocations/page.js",
-  "/export/page": "app/export/page.js"
+  "/export/page": "app/export/page.js",
+  "/view-allocations/page": "app/view-allocations/page.js"
 }

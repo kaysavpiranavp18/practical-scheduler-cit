@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 
 /* Types */
 interface Row {
@@ -18,6 +18,9 @@ interface Row {
   studentsAllocated: number;
   department_id?: string;
   department_name?: string;
+  branch_code?: string;
+  branch_name?: string;
+  semester?: string;
 }
 
 type AssignedFacultyMap = Record<string, string>;
@@ -68,174 +71,6 @@ export default function ExportPage() {
     }
   }, [params]);
 
-  const exportCSV = () => {
-    const headers = [
-      "Department ID",
-      "Department",
-      "Date",
-      "Session",
-      "Time",
-      "Lab Name",
-      "Subject Code",
-      "Subject Name",
-      "Students Allocated",
-      "Assigned Faculty",
-    ];
-
-    const csvRows = rows.map((r) => {
-      const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
-      const facultyName = assignedFaculty[facultyKey] || "Not Assigned";
-      return [
-        r.department_id || "",
-        `"${r.department_name || ""}"`,
-        r.date,
-        r.session,
-        r.time,
-        `"${r.labName}"`,
-        r.subjectCode,
-        `"${r.subjectName}"`,
-        r.studentsAllocated,
-        facultyName,
-      ].join(",");
-    });
-
-    const csv = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Internal_Examiner_Allotted_Report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportAllExcel = () => {
-    if (!savedAllocations.length) return;
-
-    const workbook = XLSX.utils.book_new();
-
-    const summaryData = savedAllocations.map((allocation, index) => [
-      index + 1,
-      allocation.department_id,
-      allocation.department_name,
-      allocation.rows.length,
-      new Date(allocation.createdAt).toLocaleDateString(),
-    ]);
-
-    const summarySheet = XLSX.utils.aoa_to_sheet([
-      ["#", "Department ID", "Department Name", "Total Allocations", "Created Date"],
-      ...summaryData
-    ]);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
-
-    savedAllocations.forEach((allocation) => {
-      const headers = [
-        "Date",
-        "Session", 
-        "Time",
-        "Lab Name",
-        "Subject Code",
-        "Subject Name",
-        "Students Allocated",
-        "Assigned Faculty",
-      ];
-
-      const sheetData = allocation.rows.map((r) => {
-        const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
-        const facultyName = allocation.assignedFaculty[facultyKey] || "Not Assigned";
-        return [
-          r.date,
-          r.session,
-          r.time,
-          r.labName,
-          r.subjectCode,
-          r.subjectName,
-          r.studentsAllocated,
-          facultyName,
-        ];
-      });
-
-      const sheet = XLSX.utils.aoa_to_sheet([headers, ...sheetData]);
-      XLSX.utils.book_append_sheet(workbook, sheet, allocation.department_name || allocation.department_id);
-    });
-
-    XLSX.writeFile(workbook, "All_Departments_Allocation_Report.xlsx");
-  };
-
-  const exportPDF = async () => {
-    const doc = new jsPDF();
-
-    const logoUrl = "/Anna University logo.png";
-    const logoImg = new Image();
-    logoImg.src = logoUrl;
-
-    await new Promise<void>((resolve, reject) => {
-      logoImg.onload = () => {
-        doc.addImage(logoImg, "PNG", 14, 10, 35, 35);
-        resolve();
-      };
-      logoImg.onerror = () => reject(new Error("Failed to load logo image"));
-    });
-
-    doc.setFontSize(14);
-    doc.text("ANNA UNIVERSITY :: CHENNAI - 600 025", 105, 25, { align: "center" });
-    doc.setFontSize(12);
-    doc.text("OFFICE OF THE CONTROLLER OF EXAMINATIONS", 105, 32, { align: "center" });
-    doc.setFontSize(13);
-    doc.text("Internal Examiner Allotted Report", 105, 47, { align: "center" });
-
-    let y = 57; // Corrected to use 'let' for reassignment
-
-    const grouped = rows.reduce((acc, row) => {
-      const dept = row.department_id || "NA";
-      if (!acc[dept]) acc[dept] = { name: row.department_name || "", rows: [] };
-      acc[dept].rows.push(row);
-      return acc;
-    }, {} as Record<string, { name: string; rows: Row[] }>);
-
-    for (const deptId of Object.keys(grouped)) {
-      const dept = grouped[deptId];
-
-      doc.setFontSize(11);
-      doc.text(`Department ID: ${deptId}   Department: ${dept.name}`, 14, y);
-      y += 6;
-
-      const tableData = dept.rows.map((r) => {
-        const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
-        const facultyName = assignedFaculty[facultyKey] || "Not Assigned";
-        return [
-          r.date,
-          r.session,
-          r.time,
-          r.labName,
-          r.subjectCode,
-          r.subjectName,
-          r.studentsAllocated,
-          facultyName,
-        ];
-      });
-
-      autoTable(doc, {
-        head: [["Date","Session","Time","Lab Name","Subject Code","Subject Name","Students","Faculty"]],
-        body: tableData,
-        startY: y,
-        theme: "grid",
-        headStyles: { fillColor: [41, 128, 185] },
-        styles: { fontSize: 9, cellPadding: 2 },
-        columnStyles: { 3: { cellWidth: "auto" }, 5: { cellWidth: "auto" } },
-      });
-
-      y = (doc as any).lastAutoTable.finalY + 15; // eslint-disable-line @typescript-eslint/no-explicit-any
-      if (y > 250) { doc.addPage(); y = 20; }
-    }
-
-    const date = new Date().toLocaleDateString();
-    doc.setFontSize(9);
-    doc.text(`Generated on ${date}`, 14, doc.internal.pageSize.height - 10);
-
-    doc.save("Internal_Examiner_Allotted_Report.pdf");
-  };
-
   const exportAllPDF = async () => {
     if (!savedAllocations.length) return;
 
@@ -243,81 +78,94 @@ export default function ExportPage() {
 
     for (let i = 0; i < savedAllocations.length; i++) {
       const allocation = savedAllocations[i];
-      
-      if (i > 0) {
-        doc.addPage();
-      }
 
+      if (i > 0) doc.addPage();
+
+      // Load and add logo
       const logoUrl = "/Anna University logo.png";
       const logoImg = new Image();
       logoImg.src = logoUrl;
-
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          doc.addImage(logoImg, "PNG", 14, 10, 45, 45);
+          doc.addImage(logoImg, "PNG", 14, 10, 20, 20);
           resolve();
         };
-        logoImg.onerror = () => reject(new Error("Failed to load logo image"));
+        logoImg.onerror = () => resolve();
       });
 
-      doc.setFontSize(14);
-      doc.text("ANNA UNIVERSITY :: CHENNAI - 600 025", 105, 20, { align: "center" });
-
+      // Header
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("OFFICE OF THE CONTROLLER OF EXAMINATIONS", 105, 28, { align: "center" });
-
-      doc.setFontSize(13);
-      doc.text("(APR/MAY) / (NOV/DEC) EXAMINATIONS", 105, 36, { align: "center" });
-
-      doc.setFontSize(13);
-      doc.text("Internal Examiner Allotted Report", 105, 44, { align: "center" });
-
-      doc.setFontSize(12);
-      doc.text(`Department: ${allocation.department_name}`, 105, 57, { align: "center" });
+      doc.text("ANNA UNIVERSITY :: CHENNAI - 600 025", 105, 15, { align: "center" });
       doc.setFontSize(11);
-      doc.text(`Department ID: ${allocation.department_id}`, 105, 65, { align: "center" });
+      doc.text("OFFICE OF THE CONTROLLER OF EXAMINATIONS", 105, 21, { align: "center" });
+      doc.setFontSize(10);
+      doc.text("APRIL / MAY EXAMINATIONS, 2025 EXAMINATIONS", 105, 27, { align: "center" });
+      doc.setFontSize(11);
+      doc.text("Internal Examiner Allotted Report", 105, 33, { align: "center" });
 
-      let y = 75;
+      let y = 40;
 
+      // Branch Code & Branch Name
+      const branchCode = allocation.rows[0]?.branch_code || allocation.department_id;
+      const branchName = allocation.rows[0]?.branch_name || allocation.department_name;
+      doc.setTextColor(200, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(
+        `Branch Code - Branch Name [ University ] : ${branchCode} - ${branchName} [ AUC ]`,
+        14,
+        y
+      );
+      doc.setTextColor(0, 0, 0);
+      y += 6;
+
+      // Table Data
       const tableData = allocation.rows.map((r) => {
         const facultyKey = `${r.subjectCode}|${r.date}|${r.labId || r.labName}`;
         const facultyName = allocation.assignedFaculty[facultyKey] || "Not Assigned";
         return [
-          r.date,
-          r.session,
-          r.time,
-          r.labName,
+          r.semester || "",
           r.subjectCode,
           r.subjectName,
           r.studentsAllocated,
-          facultyName,
+          r.session,
+          r.date,
+          r.time,
+          facultyName
         ];
       });
 
+      // AutoTable
       autoTable(doc, {
-        head: [["Date","Session","Time","Lab Name","Subject Code","Subject Name","Students","Faculty"]],
+        head: [
+          [
+            "Semester",
+            "Subject Code",
+            "Subject Name",
+            "Total Students",
+            "Session No.",
+            "Date",
+            "Time",
+            "Internal Examiner Staff Name"
+          ]
+        ],
         body: tableData,
         startY: y,
         theme: "grid",
-        headStyles: { fillColor: [41, 128, 185] },
-        styles: { fontSize: 9, cellPadding: 2 },
-        columnStyles: { 3: { cellWidth: "auto" }, 5: { cellWidth: "auto" } },
+        styles: { fontSize: 8, cellPadding: 2, halign: "center", valign: "middle" },
+        headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.3 },
+        tableLineColor: [0, 0, 0],
+        tableLineWidth: 0.3
       });
 
       const date = new Date().toLocaleDateString();
-      doc.setFontSize(9);
-      doc.text(`Generated on ${date} | Page ${i + 1} of ${savedAllocations.length}`, 14, doc.internal.pageSize.height - 10);
+      doc.setFontSize(8);
+      doc.text(`Generated on ${date}`, 14, doc.internal.pageSize.height - 10);
     }
 
     doc.save("All_Departments_Allocation_Report.pdf");
   };
-
-  const grouped = rows.reduce((acc, row) => {
-    const dept = row.department_id || "NA";
-    if (!acc[dept]) acc[dept] = { name: row.department_name || "", rows: [] };
-    acc[dept].rows.push(row);
-    return acc;
-  }, {} as Record<string, { name: string; rows: Row[] }>);
 
   if (isMultiExport) {
     return (
@@ -325,41 +173,11 @@ export default function ExportPage() {
         <section className="w-full max-w-4xl p-6 bg-white shadow-lg rounded-xl border border-gray-100">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800 mb-2">Export All Saved Allocations</h1>
-            <p className="text-gray-600">Download all {savedAllocations.length} saved department allocations in one file</p>
+            <p className="text-gray-600">
+              Download all {savedAllocations.length} saved department allocations in one file
+            </p>
           </div>
-
-          <div className="grid gap-4 mb-6">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="font-semibold text-blue-800 mb-2">Summary</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-blue-600">Total Departments:</span>
-                  <p className="font-medium">{savedAllocations.length}</p>
-                </div>
-                <div>
-                  <span className="text-blue-600">Total Allocations:</span>
-                  <p className="font-medium">{savedAllocations.reduce((sum, a) => sum + a.rows.length, 0)}</p>
-                </div>
-                <div>
-                  <span className="text-blue-600">Date Range:</span>
-                  <p className="font-medium">{new Date(Math.min(...savedAllocations.map(a => new Date(a.createdAt).getTime()))).toLocaleDateString()} - {new Date(Math.max(...savedAllocations.map(a => new Date(a.createdAt).getTime()))).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <span className="text-blue-600">File Size:</span>
-                  <p className="font-medium">~{Math.ceil(savedAllocations.reduce((sum, a) => sum + a.rows.length, 0) * 0.1)} KB</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-4 mb-6">
-            <Button
-              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:opacity-90 text-lg px-8 py-3"
-              onClick={exportAllExcel}
-              disabled={!savedAllocations.length}
-            >
-              Download All Excel
-            </Button>
             <Button
               className="bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg hover:opacity-90 text-lg px-8 py-3"
               onClick={exportAllPDF}
@@ -378,14 +196,14 @@ export default function ExportPage() {
       <section className="card-enhanced">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl text-gradient">Export Allocations</h1>
-          <span className="text-xs text-muted-foreground">CSV / PDF Export</span>
+          <span className="text-xs text-muted-foreground">PDF Export</span>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button className="btn-gradient" onClick={exportCSV} disabled={!rows.length}>Download CSV</Button>
-          <Button className="btn-glass" onClick={exportPDF} disabled={!rows.length}>Download PDF</Button>
+          <Button className="btn-glass" onClick={exportAllPDF} disabled={!rows.length}>
+            Download PDF
+          </Button>
         </div>
       </section>
     </main>
   );
 }
-
